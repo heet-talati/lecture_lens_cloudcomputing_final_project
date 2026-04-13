@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LectureLens</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        LectureLens
+      </div>
+      <p class="tagline">AI-Powered Lecture Transcription &amp; Summarization</p>
+    </header>
+
+    <main>
+      <!-- Input Section -->
+      <section class="card input-section">
+        <h2>Upload or Record Audio</h2>
+
+        <!-- Tab Toggle -->
+        <div class="tab-group" role="tablist">
+          <button class="tab active" id="tab-upload" role="tab" aria-selected="true" aria-controls="panel-upload">
+            Upload File
+          </button>
+          <button class="tab" id="tab-record" role="tab" aria-selected="false" aria-controls="panel-record">
+            Record Mic
+          </button>
+        </div>
+
+        <!-- Upload Panel -->
+        <div id="panel-upload" class="tab-panel" role="tabpanel">
+          <div
+            class="drop-zone"
+            id="dropZone"
+            tabindex="0"
+            aria-label="Drag and drop audio file or click to browse"
+          >
+            <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+              <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+            </svg>
+            <p class="drop-text">Drag &amp; drop your audio file here</p>
+            <p class="drop-subtext">MP3, WAV, or M4A &mdash; max 25 MB</p>
+            <button class="btn btn-secondary" id="browseBtn" type="button">Browse File</button>
+            <input type="file" id="fileInput" accept=".mp3,.wav,.m4a,audio/*" hidden />
+          </div>
+          <div class="file-selected hidden" id="fileSelected">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+            </svg>
+            <span id="fileName">No file selected</span>
+            <button class="btn-icon" id="clearFileBtn" title="Remove file" aria-label="Remove file">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Record Panel -->
+        <div id="panel-record" class="tab-panel hidden" role="tabpanel">
+          <div class="record-area">
+            <button class="record-btn" id="recordBtn" aria-label="Start recording">
+              <span class="record-icon"></span>
+            </button>
+            <div class="record-status">
+              <span id="recordLabel">Click to start recording</span>
+              <span class="timer hidden" id="timer">00:00</span>
+            </div>
+            <div class="waveform" id="waveform" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+          <div class="file-selected hidden" id="recordingReady">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span>Recording ready &mdash; <span id="recordDuration"></span></span>
+            <button class="btn-icon" id="clearRecordBtn" title="Discard recording" aria-label="Discard recording">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Error Banner -->
+        <div class="error-banner hidden" id="errorBanner" role="alert">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span id="errorMessage">An error occurred.</span>
+          <button class="btn-icon" id="dismissError" aria-label="Dismiss error">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Submit -->
+        <button class="btn btn-primary" id="processBtn" disabled>
+          <svg class="btn-icon-left" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          Transcribe &amp; Summarize
+        </button>
+      </section>
+
+      <!-- Loading Overlay -->
+      <div class="loading-card hidden" id="loadingCard" aria-live="polite">
+        <div class="spinner"></div>
+        <p id="loadingMessage">Transcribing audio&hellip;</p>
+        <p class="loading-sub">This may take a moment for longer recordings.</p>
+      </div>
+
+      <!-- Results Section -->
+      <section class="results-section hidden" id="resultsSection">
+        <div class="results-grid">
+          <!-- Transcript Panel -->
+          <div class="card result-card">
+            <div class="result-header">
+              <h3>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+                </svg>
+                Transcript
+              </h3>
+              <div class="result-actions">
+                <button class="btn btn-secondary btn-sm" data-copy="transcript">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  Copy
+                </button>
+                <button class="btn btn-secondary btn-sm" data-download="transcript">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Download
+                </button>
+              </div>
+            </div>
+            <div class="result-body" id="transcriptText" aria-label="Transcript output"></div>
+          </div>
+
+          <!-- Summary Panel -->
+          <div class="card result-card">
+            <div class="result-header">
+              <h3>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+                </svg>
+                Summary
+              </h3>
+              <div class="result-actions">
+                <button class="btn btn-secondary btn-sm" data-copy="summary">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  Copy
+                </button>
+                <button class="btn btn-secondary btn-sm" data-download="summary">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Download
+                </button>
+              </div>
+            </div>
+            <div class="result-body" id="summaryText" aria-label="Summary output"></div>
+          </div>
+        </div>
+
+        <div class="results-footer">
+          <button class="btn btn-secondary" id="resetBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+            </svg>
+            Process Another File
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>LectureLens &mdash; Cloud Computing for Software Development &mdash; SAIT 2026</p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
