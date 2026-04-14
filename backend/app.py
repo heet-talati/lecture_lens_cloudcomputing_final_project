@@ -9,9 +9,14 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(ROOT_DIR, '.env'), override=True)
 
 # Import core functionality for transcription, summarization, and safety checks
-from transcribe import transcribe_audio
-from summarize import summarize_text
-from content_safety import check_content_safety, ContentSafetyError
+try:
+    from .transcribe import transcribe_audio
+    from .summarize import summarize_text
+    from .content_safety import check_content_safety, ContentSafetyError
+except ImportError:
+    from transcribe import transcribe_audio
+    from summarize import summarize_text
+    from content_safety import check_content_safety, ContentSafetyError
 
 # Initialize Flask app and enable Cross-Origin Resource Sharing (CORS)
 app = Flask(__name__)
