@@ -273,7 +273,7 @@ async function processAudio() {
 
   const file = state.activeTab === 'upload'
     ? state.uploadedFile
-    : blobToFile(state.recordedBlob);
+    : await blobToFile(state.recordedBlob);
 
   if (!file) return;
 
@@ -298,9 +298,53 @@ async function processAudio() {
   }
 }
 
-function blobToFile(blob) {
-  const ext = blob.type.includes('webm') ? 'webm' : 'wav';
-  return new File([blob], `recording.${ext}`, { type: blob.type });
+async function blobToFile(blob) {
+  if (!blob.type.includes('webm') && !blob.type.includes('ogg')) {
+    return new File([blob], 'recording.wav', { type: blob.type });
+  }
+  // Decode compressed audio → PCM WAV using the Web Audio API (no ffmpeg needed)
+  const arrayBuffer = await blob.arrayBuffer();
+  const audioCtx = new AudioContext();
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  audioCtx.close();
+  const wavBlob = _encodeWav(audioBuffer);
+  return new File([wavBlob], 'recording.wav', { type: 'audio/wav' });
+}
+
+function _encodeWav(audioBuffer) {
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate  = audioBuffer.sampleRate;
+  const numFrames   = audioBuffer.length;
+  const blockAlign  = numChannels * 2; // 16-bit
+  const dataSize    = numFrames * blockAlign;
+  const buf         = new ArrayBuffer(44 + dataSize);
+  const view        = new DataView(buf);
+
+  const writeStr = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
+
+  writeStr(0,  'RIFF');
+  view.setUint32( 4, 36 + dataSize, true);
+  writeStr(8,  'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);                          // PCM
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);    // byte rate
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);                         // bits per sample
+  writeStr(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  let offset = 44;
+  for (let i = 0; i < numFrames; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      offset += 2;
+    }
+  }
+  return new Blob([buf], { type: 'audio/wav' });
 }
 
 // ============================================================

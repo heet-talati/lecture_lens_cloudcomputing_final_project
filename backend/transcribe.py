@@ -13,16 +13,6 @@ import azure.cognitiveservices.speech as speechsdk
 AZURE_SPEECH_KEY    = os.environ.get('AZURE_SPEECH_KEY', '')
 AZURE_SPEECH_REGION = os.environ.get('AZURE_SPEECH_REGION', '')
 
-# Map file extension → Azure compressed-audio container format
-_COMPRESSED_FORMATS = {
-    '.mp3':  speechsdk.AudioStreamContainerFormat.MP3,
-    '.ogg':  speechsdk.AudioStreamContainerFormat.OGG_OPUS,
-    '.webm': speechsdk.AudioStreamContainerFormat.OGG_OPUS,
-    '.m4a':  speechsdk.AudioStreamContainerFormat.ANY,
-    '.aac':  speechsdk.AudioStreamContainerFormat.ANY,
-    '.flac': speechsdk.AudioStreamContainerFormat.FLAC,
-}
-
 
 def transcribe_audio(file_path: str) -> str:
     """Transcribe an audio file using Azure Speech-to-Text.
@@ -47,18 +37,10 @@ def transcribe_audio(file_path: str) -> str:
 
     ext = os.path.splitext(file_path)[1].lower()
 
-    if ext == '.wav':
-        audio_config = speechsdk.audio.AudioConfig(filename=file_path)
-    elif ext in _COMPRESSED_FORMATS:
-        container_fmt = _COMPRESSED_FORMATS[ext]
-        stream_format = speechsdk.audio.AudioStreamFormat.get_compressed_format_type(container_fmt)
-        push_stream = speechsdk.audio.PushAudioInputStream(stream_format=stream_format)
-        with open(file_path, 'rb') as f:
-            push_stream.write(f.read())
-        push_stream.close()
-        audio_config = speechsdk.audio.AudioConfig(stream=push_stream)
-    else:
+    if ext != '.wav':
         raise RuntimeError(f'Unsupported audio format: {ext}')
+
+    audio_config = speechsdk.audio.AudioConfig(filename=file_path)
 
     recognizer = speechsdk.SpeechRecognizer(
         speech_config=speech_config,
