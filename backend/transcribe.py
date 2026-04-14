@@ -1,26 +1,26 @@
 """
 Azure Speech-to-Text transcription module.
 
-Supports WAV (native) and compressed formats (MP3, OGG/Opus, WebM, M4A).
+Supports WAV (native) and compressed formats (MP3, M4A, etc.).
 Uses continuous recognition so it handles files longer than ~60 seconds.
 """
 
 import os
 import threading
+from typing import List
 
 import azure.cognitiveservices.speech as speechsdk
 
 AZURE_SPEECH_KEY    = os.environ.get('AZURE_SPEECH_KEY', '')
 AZURE_SPEECH_REGION = os.environ.get('AZURE_SPEECH_REGION', '')
 
-# Map file extension → Azure compressed-audio container format
-_COMPRESSED_FORMATS = {
+# Map file extension to Azure audio format
+_FORMAT_MAP = {
     '.mp3':  speechsdk.AudioStreamContainerFormat.MP3,
-    '.ogg':  speechsdk.AudioStreamContainerFormat.OGG_OPUS,
-    '.webm': speechsdk.AudioStreamContainerFormat.OGG_OPUS,
     '.m4a':  speechsdk.AudioStreamContainerFormat.ANY,
     '.aac':  speechsdk.AudioStreamContainerFormat.ANY,
-    '.flac': speechsdk.AudioStreamContainerFormat.FLAC,
+    '.ogg':  speechsdk.AudioStreamContainerFormat.OGG_OPUS,
+    '.opus': speechsdk.AudioStreamContainerFormat.OGG_OPUS,
 }
 
 
@@ -46,27 +46,32 @@ def transcribe_audio(file_path: str) -> str:
     speech_config.speech_recognition_language = 'en-US'
 
     ext = os.path.splitext(file_path)[1].lower()
-
-    if ext == '.wav':
-        audio_config = speechsdk.audio.AudioConfig(filename=file_path)
-    elif ext in _COMPRESSED_FORMATS:
-        container_fmt = _COMPRESSED_FORMATS[ext]
-        stream_format = speechsdk.audio.AudioStreamFormat.get_compressed_format_type(container_fmt)
-        push_stream = speechsdk.audio.PushAudioInputStream(stream_format=stream_format)
+    
+    # Determine audio format and create audio config
+    # For compressed formats, use PushAudioInputStream
+    if ext in _FORMAT_MAP:
+        container_format = _FORMAT_MAP[ext]
+        audio_format = speechsdk.audio.AudioStreamFormat(
+            compressed_stream_format=container_format
+        )
         with open(file_path, 'rb') as f:
-            push_stream.write(f.read())
-        push_stream.close()
-        audio_config = speechsdk.audio.AudioConfig(stream=push_stream)
+            audio_data = f.read()
+        
+        stream = speechsdk.audio.PushAudioInputStream(audio_format)
+        stream.write(audio_data)
+        stream.close()  # Signal EOF
+        audio_config = speechsdk.audio.AudioConfig(stream=stream)
     else:
-        raise RuntimeError(f'Unsupported audio format: {ext}')
+        # For other formats (including WAV), read directly by filename
+        audio_config = speechsdk.audio.AudioConfig(filename=file_path)
 
     recognizer = speechsdk.SpeechRecognizer(
         speech_config=speech_config,
         audio_config=audio_config,
     )
 
-    results: list[str] = []
-    errors:  list[str] = []
+    results: List[str] = []
+    errors: List[str] = []
     done = threading.Event()
 
     def on_recognized(evt):

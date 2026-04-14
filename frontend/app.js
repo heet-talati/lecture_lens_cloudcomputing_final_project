@@ -7,7 +7,7 @@
 // ----- Config -----
 // When the backend is running locally, point to it here.
 // Change to your deployed Azure App Service URL before production.
-const API_BASE = 'https://lecture-lens-app-hce0f6h7dqezc8cr.eastus2-01.azurewebsites.net';
+const API_BASE = 'http://127.0.0.1:5000/';
 
 // ----- State -----
 const state = {
@@ -272,8 +272,8 @@ async function processAudio() {
   hideError();
 
   const file = state.activeTab === 'upload'
-    ? state.uploadedFile
-    : blobToFile(state.recordedBlob);
+    ? await normalizeUploadFile(state.uploadedFile)
+    : await blobToFile(state.recordedBlob);
 
   if (!file) return;
 
@@ -298,9 +298,84 @@ async function processAudio() {
   }
 }
 
-function blobToFile(blob) {
-  const ext = blob.type.includes('webm') ? 'webm' : 'wav';
-  return new File([blob], `recording.${ext}`, { type: blob.type });
+async function normalizeUploadFile(file) {
+  if (!file) return null;
+
+  const isWav = file.type.includes('wav') || file.name.match(/\.wav$/i);
+  if (isWav) return file;
+
+  try {
+    const wavBlob = await blobToWav(file);
+    return new File([wavBlob], 'upload.wav', { type: 'audio/wav' });
+  } catch (_err) {
+    throw new Error('Uploaded audio could not be decoded in the browser. Please upload a WAV file.');
+  }
+}
+
+async function blobToFile(blob) {
+  if (blob.type.includes('webm')) {
+    const wavBlob = await blobToWav(blob);
+    return new File([wavBlob], 'recording.wav', { type: 'audio/wav' });
+  }
+
+  const ext = blob.type.includes('wav') ? 'wav' : 'm4a';
+  return new File([blob], `recording.${ext}`, { type: blob.type || 'audio/wav' });
+}
+
+async function blobToWav(blob) {
+  const arrayBuffer = await blob.arrayBuffer();
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+  const wavArrayBuffer = audioBufferToWav(audioBuffer);
+  await audioContext.close();
+  return new Blob([wavArrayBuffer], { type: 'audio/wav' });
+}
+
+function audioBufferToWav(audioBuffer) {
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const format = 1;
+  const bitDepth = 16;
+
+  let length = audioBuffer.length * numChannels * 2 + 44;
+  const buffer = new ArrayBuffer(length);
+  const view = new DataView(buffer);
+
+  const writeString = (offset, string) => {
+    for (let i = 0; i < string.length; i += 1) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  let offset = 0;
+  writeString(offset, 'RIFF'); offset += 4;
+  view.setUint32(offset, 36 + audioBuffer.length * numChannels * 2, true); offset += 4;
+  writeString(offset, 'WAVE'); offset += 4;
+  writeString(offset, 'fmt '); offset += 4;
+  view.setUint32(offset, 16, true); offset += 4;
+  view.setUint16(offset, format, true); offset += 2;
+  view.setUint16(offset, numChannels, true); offset += 2;
+  view.setUint32(offset, sampleRate, true); offset += 4;
+  view.setUint32(offset, sampleRate * numChannels * 2, true); offset += 4;
+  view.setUint16(offset, numChannels * 2, true); offset += 2;
+  view.setUint16(offset, bitDepth, true); offset += 2;
+  writeString(offset, 'data'); offset += 4;
+  view.setUint32(offset, audioBuffer.length * numChannels * 2, true); offset += 4;
+
+  const channels = [];
+  for (let i = 0; i < numChannels; i += 1) {
+    channels.push(audioBuffer.getChannelData(i));
+  }
+
+  for (let i = 0; i < audioBuffer.length; i += 1) {
+    for (let channel = 0; channel < numChannels; channel += 1) {
+      const sample = Math.max(-1, Math.min(1, channels[channel][i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      offset += 2;
+    }
+  }
+
+  return buffer;
 }
 
 // ============================================================
