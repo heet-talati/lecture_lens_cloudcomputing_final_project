@@ -13,16 +13,30 @@ from dotenv import load_dotenv
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(ROOT_DIR, '.env'), override=True)
 
-# Import core functionality for transcription, summarization, and safety checks
-try:
-    from transcribe import transcribe_audio
-    from summarize import summarize_text
-    from content_safety import check_content_safety, ContentSafetyError
-except ImportError:
-    # Graceful degradation if modules missing during health check
-    transcribe_audio = summarize_text = check_content_safety = None
-    class ContentSafetyError(Exception):
-        pass
+# Lazy-load Azure modules only when needed to avoid startup timeout
+_transcribe_audio = None
+_summarize_text = None
+_check_content_safety = None
+_ContentSafetyError = None
+
+def _init_modules():
+    """Lazy initialize backend modules on first use."""
+    global _transcribe_audio, _summarize_text, _check_content_safety, _ContentSafetyError
+    
+    if _transcribe_audio is not None:
+        return  # Already initialized
+    
+    try:
+        from transcribe import transcribe_audio as ta
+        from summarize import summarize_text as st
+        from content_safety import check_content_safety as cs, ContentSafetyError as cse
+        
+        _transcribe_audio = ta
+        _summarize_text = st
+        _check_content_safety = cs
+        _ContentSafetyError = cse
+    except Exception as e:
+        raise RuntimeError(f"Failed to load backend modules: {e}")
 
 # Initialize Flask app and enable Cross-Origin Resource Sharing (CORS)
 app = Flask(__name__)
@@ -60,8 +74,10 @@ def root():
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
-    if not transcribe_audio:
-        return jsonify({'error': 'Transcription service not initialized'}), 503
+    try:
+        _init_modules()
+    except Exception as e:
+        return jsonify({'error': f'Backend not ready: {e}'}), 503
     
     audio_file = request.files.get('audio') or request.files.get('file')
     if audio_file is None:
@@ -73,15 +89,15 @@ def transcribe():
 
     tmp_path = save_temp_file(audio_file)
     try:
-        transcript = transcribe_audio(tmp_path)
+        transcript = _transcribe_audio(tmp_path)
     except Exception as e:
         return jsonify({'error': f'Transcription failed: {e}'}), 500
     finally:
         os.unlink(tmp_path)
 
     try:
-        check_content_safety(transcript)
-    except ContentSafetyError as e:
+        _check_content_safety(transcript)
+    except _ContentSafetyError as e:
         return jsonify({'error': str(e)}), 400
     except Exception:
         pass
@@ -93,8 +109,10 @@ def transcribe():
 
 @app.route('/summarize', methods=['POST'])
 def summarize():
-    if not summarize_text:
-        return jsonify({'error': 'Summarization service not initialized'}), 503
+    try:
+        _init_modules()
+    except Exception as e:
+        return jsonify({'error': f'Backend not ready: {e}'}), 503
     
     data = request.get_json(silent=True)
     if not data or ('transcript' not in data and 'text' not in data):
@@ -105,13 +123,13 @@ def summarize():
         return jsonify({'error': 'Transcript is empty.'}), 400
 
     try:
-        summary = summarize_text(transcript)
+        summary = _summarize_text(transcript)
     except Exception as e:
         return jsonify({'error': f'Summarization failed: {e}'}), 500
 
     try:
-        check_content_safety(summary)
-    except ContentSafetyError as e:
+        _check_content_safety(summary)
+    except _ContentSafetyError as e:
         return jsonify({'error': str(e)}), 400
     except Exception:
         pass
@@ -123,8 +141,10 @@ def summarize():
 
 @app.route('/process', methods=['POST'])
 def process():
-    if not transcribe_audio or not summarize_text:
-        return jsonify({'error': 'Processing services not initialized'}), 503
+    try:
+        _init_modules()
+    except Exception as e:
+        return jsonify({'error': f'Backend not ready: {e}'}), 503
     
     audio_file = request.files.get('audio') or request.files.get('file')
     if audio_file is None:
@@ -136,27 +156,27 @@ def process():
 
     tmp_path = save_temp_file(audio_file)
     try:
-        transcript = transcribe_audio(tmp_path)
+        transcript = _transcribe_audio(tmp_path)
     except Exception as e:
         return jsonify({'error': f'Transcription failed: {e}'}), 500
     finally:
         os.unlink(tmp_path)
 
     try:
-        check_content_safety(transcript)
-    except ContentSafetyError as e:
+        _check_content_safety(transcript)
+    except _ContentSafetyError as e:
         return jsonify({'error': str(e)}), 400
     except Exception:
         pass
 
     try:
-        summary = summarize_text(transcript)
+        summary = _summarize_text(transcript)
     except Exception as e:
         return jsonify({'error': f'Summarization failed: {e}'}), 500
 
     try:
-        check_content_safety(summary)
-    except ContentSafetyError as e:
+        _check_content_safety(summary)
+    except _ContentSafetyError as e:
         return jsonify({'error': str(e)}), 400
     except Exception:
         pass
