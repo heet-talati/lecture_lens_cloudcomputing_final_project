@@ -42,10 +42,20 @@ def save_temp_file(file_storage):
 
 # ── Health ────────────────────────────────────────────────────────────────────
 
+def health_response():
+    return jsonify({'status': 'ok'})
+
+
 @app.route('/health', methods=['GET'])
 def health():
     # Simple health check endpoint to verify server is running
-    return jsonify({'status': 'ok'})
+    return health_response()
+
+
+@app.route('/', methods=['GET'])
+def root():
+    # Azure health probes sometimes target the app root.
+    return health_response()
 
 
 # ── Transcribe ────────────────────────────────────────────────────────────────
