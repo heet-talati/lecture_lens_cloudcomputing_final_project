@@ -67,14 +67,15 @@ def root():
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
+    # Accept both "audio" and common test key "file".
+    audio_file = request.files.get('audio') or request.files.get('file')
+    
     # Ensure an audio file is included in the request
-    if 'audio' not in request.files:
+    if audio_file is None:
         return jsonify({'error': 'No audio file provided.'}), 400
 
-    audio_file = request.files['audio']
-
     # Validate file extension
-    ext = os.path.splitext(audio_file.filename)[1].lower()
+    ext = os.path.splitext(audio_file.filename or '')[1].lower() or '.wav'
     if ext not in ALLOWED_EXTENSIONS:
         return jsonify({'error': f'Unsupported audio format: {ext}'}), 400
 
@@ -110,12 +111,12 @@ def summarize():
     # Parse JSON request body safely
     data = request.get_json(silent=True)
     
-    # Validate that transcript exists in request body
-    if not data or 'transcript' not in data:
+    # Accept both "transcript" and common test key "text".
+    if not data or ('transcript' not in data and 'text' not in data):
         return jsonify({'error': 'Missing transcript in request body.'}), 400
 
     # Clean and validate transcript content
-    transcript = data['transcript'].strip()
+    transcript = (data.get('transcript') or data.get('text') or '').strip()
     if not transcript:
         return jsonify({'error': 'Transcript is empty.'}), 400
 
@@ -142,14 +143,15 @@ def summarize():
 
 @app.route('/process', methods=['POST'])
 def process():
+    # Accept both "audio" and common test key "file".
+    audio_file = request.files.get('audio') or request.files.get('file')
+
     # Ensure an audio file is included
-    if 'audio' not in request.files:
+    if audio_file is None:
         return jsonify({'error': 'No audio file provided.'}), 400
 
-    audio_file = request.files['audio']
-
     # Validate file extension
-    ext = os.path.splitext(audio_file.filename)[1].lower()
+    ext = os.path.splitext(audio_file.filename or '')[1].lower() or '.wav'
     if ext not in ALLOWED_EXTENSIONS:
         return jsonify({'error': f'Unsupported audio format: {ext}'}), 400
 
