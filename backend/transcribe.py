@@ -1,12 +1,13 @@
 """
 Azure Speech-to-Text transcription module.
 
-Supports WAV (native) and compressed formats (MP3, OGG/Opus, WebM, M4A).
+Supports WAV (native) and compressed formats (MP3, M4A, etc.).
 Uses continuous recognition so it handles files longer than ~60 seconds.
 """
 
 import os
 import threading
+from typing import List
 
 import azure.cognitiveservices.speech as speechsdk
 
@@ -47,8 +48,8 @@ def transcribe_audio(file_path: str) -> str:
         audio_config=audio_config,
     )
 
-    results: list[str] = []
-    errors:  list[str] = []
+    results: List[str] = []
+    errors: List[str] = []
     done = threading.Event()
 
     def on_recognized(evt):
